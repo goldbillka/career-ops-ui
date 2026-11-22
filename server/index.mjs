@@ -65,6 +65,7 @@ import { registerGeocodeRoutes } from './lib/routes/geocode.mjs';
 import { registerMapRoutes, tileConfig } from './lib/routes/map.mjs';
 import { listen } from './lib/http-timeouts.mjs';
 import { requestGuard } from './lib/request-guard.mjs';
+import { authGate } from './lib/auth-gate.mjs';
 import { installAsyncRouteSafety } from './lib/async-safety.mjs';
 import { createRequire } from 'node:module';
 
@@ -343,7 +344,9 @@ export function bundleCompressionMiddleware({ publicDir }) {
     const etag = bundleETag(hash);
     res.setHeader('Vary', 'Accept-Encoding');
     res.setHeader('ETag', etag);
-    if (presented === null) {
+    if (res.locals.authProtected) {
+      res.setHeader('Cache-Control', 'private, no-store');
+    } else if (presented === null) {
       res.setHeader('Cache-Control', BUNDLE_CACHE_CONTROL);
     } else if (presented === hash) {
       res.setHeader('Cache-Control', BUNDLE_CACHE_CONTROL_IMMUTABLE);
@@ -420,11 +423,9 @@ export function createApp() {
   if (process.env.TRUST_PROXY) {
     app.set('trust proxy', Number.parseInt(process.env.TRUST_PROXY, 10) || 1);
   }
-  // First middleware: Host allowlist (DNS rebinding) + same-origin check (CSRF)
-  // — the loopback bind is the only access control this server has (request-guard.mjs).
+  // Host allowlist (DNS rebinding) + same-origin check (CSRF) also protects
+  // authenticated browser requests; do not move it behind the auth gate.
   app.use(requestGuard({ bindHost: process.env.HOST, allowedHosts: process.env.ALLOWED_HOSTS }));
-  app.use(express.json({ limit: '5mb' }));
-  app.use(express.text({ limit: '5mb', type: ['text/plain', 'text/markdown'] }));
 
   // ──────────────── Security headers ────────────────
   // NEW-1 (v1.58.4) — CSP is now unconditional. Previously it was layered on
@@ -471,6 +472,13 @@ export function createApp() {
     next();
   });
 
+  // Gate the entire application before body parsing, static assets or routes.
+  // Browser Basic credentials also cover native EventSource GETs; API clients
+  // can use a Bearer header. Only the non-sensitive /api/ping stays public.
+  app.use(authGate({ bindHost: process.env.HOST || '127.0.0.1', token: process.env.WEB_UI_AUTH_TOKEN }));
+  app.use(express.json({ limit: '5mb' }));
+  app.use(express.text({ limit: '5mb', type: ['text/plain', 'text/markdown'] }));
+
   // Activity log — records every state-changing request so the UI can show
   // a history page. Must come BEFORE express.static so the same middleware
   // covers both API and asset routes (asset GETs are filtered out).
@@ -498,6 +506,10 @@ export function createApp() {
   app.use('/vendor/leaflet', express.static(LEAFLET_DIST));
   app.use(express.static(PUBLIC_DIR, {
     setHeaders: (res, filePath) => {
+      if (res.locals.authProtected) {
+        res.setHeader('Cache-Control', 'private, no-store');
+        return;
+      }
       if (/\.(?:js|mjs|css|html)$/i.test(filePath)) {
         res.setHeader('Cache-Control', 'no-store');
       }

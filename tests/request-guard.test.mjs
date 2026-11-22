@@ -86,11 +86,13 @@ test('isCrossSite: Origin must name this server; Sec-Fetch-Site cross-site is re
   assert.equal(guard.isCrossSite(req({ host: 'localhost:1', 'sec-fetch-site': 'same-origin' }), p), false);
 });
 
-test('a rebound Host is refused with 421 on every route, a loopback or allowed Host passes', async () => {
+test('a rebound Host gets 421, loopback passes, allowed public Host reaches the auth gate', async () => {
   assert.equal((await call({ path: '/api/health', headers: { host: 'rebind.evil.example' } })).status, 421);
   assert.equal((await call({ path: '/', headers: { host: 'rebind.evil.example:4317' } })).status, 421);
   assert.equal((await call({ path: '/api/health' })).status, 200);
-  assert.equal((await call({ path: '/api/health', headers: { host: 'resumecraft.ru' } })).status, 200);
+  // Host is allowed through the DNS-rebind guard, then the auth gate fails
+  // closed: a public proxy Host cannot inherit the loopback no-auth default.
+  assert.equal((await call({ path: '/api/health', headers: { host: 'resumecraft.ru' } })).status, 503);
 });
 
 test('a cross-site POST is refused before the route runs (nothing is written)', async () => {

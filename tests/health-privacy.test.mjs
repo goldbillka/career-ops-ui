@@ -34,13 +34,21 @@ after(() => {
 
 async function bootAndGet(host, path = '/api/health') {
   process.env.HOST = host;
+  // Exposed health is now private; supply a fixture credential to test its
+  // redaction behavior rather than parsing the unauthenticated 401 body.
+  const token = 'health-privacy-test-only-secret-with-32-plus-characters';
+  const previousToken = process.env.WEB_UI_AUTH_TOKEN;
+  if (host !== '127.0.0.1') process.env.WEB_UI_AUTH_TOKEN = token;
   const app = createApp();
+  if (previousToken === undefined) delete process.env.WEB_UI_AUTH_TOKEN;
+  else process.env.WEB_UI_AUTH_TOKEN = previousToken;
   const server = await new Promise((r) => {
     const s = app.listen(0, '127.0.0.1', () => r(s));
   });
   try {
     const port = server.address().port;
-    const res = await fetch(`http://127.0.0.1:${port}${path}`);
+    const res = await fetch(`http://127.0.0.1:${port}${path}`, host === '127.0.0.1'
+      ? {} : { headers: { Authorization: `Bearer ${token}` } });
     return await res.json();
   } finally {
     // close() stops new connections but leaves keep-alive sockets open, and

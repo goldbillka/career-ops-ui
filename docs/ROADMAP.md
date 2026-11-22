@@ -7,7 +7,7 @@
 | # | Phase | Status | Goal |
 |---|---|---|---|
 | P-11 | TS/JSDoc adoption evaluation | pending | Re-evaluate the TS migration heuristic. Combined LOC trajectory + bug-class analysis from v1.7–1.9. |
-| P-12 | Auth gate for LAN exposure | pending | When `HOST=0.0.0.0`, require a token-bearer header gated by `WEB_UI_AUTH_TOKEN`. Today the user is on their honor. |
+| P-12 | Auth gate for LAN exposure | implemented (deployment verification pending) | Non-loopback requires `WEB_UI_AUTH_TOKEN`; Basic for SPA/native SSE, Bearer for API clients; `/api/ping` only public. TLS proxy still mandatory. See `docs/AUTH-DEPLOYMENT.md`. |
 | P-13 | Persistent SSE log archive | pending | Today scan logs vanish on page reload. Persist last N runs under `data/scan-logs/`. Provide a `/#/activity` filter to browse them. |
 | P-14 | Public Plug-in scanners | **done (v1.69.0)** | `server/lib/sources/registry.mjs` now DYNAMICALLY auto-discovers every `server/lib/sources/*.mjs` via `readdirSync` + dynamic `import()`, collecting each adapter's `export const meta` block at boot. Users drop in an adapter file with a `meta` export — no core-file edit. Foundation laid in v1.29.0; dynamic discovery completed in v1.69.0 (PR #28). |
 | P-15 | UI views split | pending | `public/js/views/scan.js` is now ~670 LOC (was 461 at last measurement) — past 400-LOC soft target. Extract Active Companies card to `views/scan/active-companies.js`; consider splitting source-filter logic. `public/css/app.css` at ~780 LOC is past the 800-LOC hard target — split candidates: paginator → `views/paginator.css`, sidebar → `views/sidebar.css`. |
@@ -54,7 +54,7 @@
 ## Backlog (not yet scheduled)
 
 - **TS migration evaluation.** Revisit if combined LOC > 10k or if implicit-any bug count > N/quarter. For now, JSDoc + `// @ts-check` on hot paths is enough.
-- **Authentication for LAN exposure.** When `HOST=0.0.0.0`, add token-bearer auth gated by an env var. Today the user is on their honor.
+- **Deployment verification for LAN exposure.** Exercise the auth gate behind the actual TLS reverse proxy before exposing it; see `docs/AUTH-DEPLOYMENT.md`.
 - **Bundler experiment.** Test esbuild-based optional bundling for `public/js/` for production deployments while keeping the dev story zero-tooling.
 - **Plug-in scanners.** Allow third-party portal source modules (`server/lib/sources/*.mjs`) to be discovered automatically rather than hard-coded.
 - **Persistent SSE log archive.** Today scan logs vanish on page reload. Persist last N runs under `data/scan-logs/`.

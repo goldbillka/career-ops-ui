@@ -2,6 +2,8 @@
 
 > Honest assessment, dated 2026-05-18. Updated each minor / patch release. Use this as the gate before deploying.
 
+> Historical v1.197.0 assessment: the test counts/version figures below are not current. The P-12 implementation on this branch is described in `docs/AUTH-DEPLOYMENT.md`; it does **not** authorize LAN/public deployment until local and proxy/TLS verification has passed.
+
 ## TL;DR
 
 `career-ops-ui` v1.197.0 is **ready for single-tenant production use** on a trusted machine (developer's laptop / personal VPS bound to loopback). Multi-tenant deployments and LAN-exposed instances require the v2.0.x P-12 auth gate first.
