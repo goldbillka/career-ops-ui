@@ -254,7 +254,8 @@ Custom port / host:
 
 ```bash
 PORT=8080 bash web-ui/bin/start.sh
-HOST=0.0.0.0 PORT=4317 bash web-ui/bin/start.sh   # expose on LAN
+# Non-loopback requires WEB_UI_AUTH_TOKEN and a TLS reverse proxy;
+# see docs/AUTH-DEPLOYMENT.md before changing HOST.
 ```
 
 If you cloned the repo somewhere else (not as `career-ops/web-ui`), point at career-ops via env:
@@ -639,6 +640,7 @@ You can also extend any company entry with an explicit `api:` URL. See [`docs/po
 ## Security notes
 
 - Server binds to `127.0.0.1` by default — never exposed to the internet without explicit `HOST=0.0.0.0`.
+- **Single-tenant auth gate:** a non-loopback bind fails closed without a valid `WEB_UI_AUTH_TOKEN` (at least 32 printable ASCII characters). The browser uses HTTP Basic (`career-ops` / token); API clients can use `Authorization: Bearer`. The entire SPA, static assets, API, streams and `/api/health` are gated; only the minimal `/api/ping` is public. A loopback bind keeps its no-auth default; setting the token there opts into the same gate. **Do not expose plaintext HTTP:** TLS termination, proxy configuration, host allowlisting and limits are documented in `docs/AUTH-DEPLOYMENT.md`. This does not add multi-tenancy.
 - **Path sanitization (v1.21.0)**: every `:name` / `:slug` route param goes through `sanitizePathName()` in `server/lib/security.mjs` — strips non-`[\w-.]`, drops leading dot-runs, collapses internal dot-runs, caps at 200 chars, empty → 400. Replaces 10 duplicated regex copies that previously kept `..pdf` / `....md` through.
 - **DNS-rebind defense (v1.21.0)**: `/api/pipeline/preview` and `/api/auto-pipeline` route through `server/lib/safe-fetch.mjs::safeGet` — one DNS lookup, pinned TCP connection, SNI/Host targeted at the original hostname. No second lookup, no TOCTOU window.
 - **Concurrent-write mutex (v1.21.0)**: `tracker.mjs`, `pipeline.mjs` (POST + DELETE), and `auto-pipeline.mjs`'s tracker step wrap read-modify-write in `withFileLock(path, fn)` from `server/lib/file-lock.mjs`. Concurrent POSTs no longer drop rows.
